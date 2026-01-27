@@ -70,5 +70,8 @@ Desktop.ini
 *.swo
 *~
 
+# Batch files
+*.bat
+
 # Application specific
 HELP.md

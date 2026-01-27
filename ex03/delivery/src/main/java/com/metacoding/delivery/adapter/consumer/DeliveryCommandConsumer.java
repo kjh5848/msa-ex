@@ -40,35 +40,5 @@ public class DeliveryCommandConsumer {
             System.out.println("delivery 이벤트 생성 실패");
         }
     }
-    
-    @Transactional
-    @KafkaListener(topics = "complete-delivery-command", groupId = "delivery-service")
-    public void handleCompleteDeliveryCommand(CompleteDeliveryCommand command) {
-        try {
-            // 배달 완료 처리
-            deliveryService.completeDelivery(command.getOrderId());
-            
-            // 배달 정보 조회 (deliveryId 필요)
-            var delivery = deliveryService.findByIdByOrderId(command.getOrderId());
-            
-            // 성공 이벤트 발행
-            DeliveryCompleted event = new DeliveryCompleted(
-                command.getOrderId(),
-                delivery.id(),
-                true
-            );
-            kafkaTemplate.send("delivery-completed", event);
-            System.out.println("delivery 완료 이벤트 생성 성공");
-        } catch (Exception e) {
-            // 실패 이벤트 발행
-            DeliveryCompleted event = new DeliveryCompleted(
-                command.getOrderId(),
-                0,
-                false
-            );
-            kafkaTemplate.send("delivery-completed", event);
-            System.out.println("delivery 완료 이벤트 생성 실패: " + e.getMessage());
-        }
-    }
 }
 

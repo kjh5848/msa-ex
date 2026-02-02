@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: orchestrator-server
-          image: metacoding/orchestrator:1
+          image: 842903729788.dkr.ecr.ap-northeast-2.amazonaws.com/metacoding/orchestrator:1
           ports:
             - containerPort: 8085
           env:

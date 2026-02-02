@@ -15,7 +15,9 @@ spec:
     spec:
       containers:
         - name: delivery-server
-          image: metacoding/delivery:1
+          image: 842903729788.dkr.ecr.ap-northeast-2.amazonaws.com/metacoding/delivery:1
+            #나중에 지워야 함.
+          imagePullPolicy: Always
           ports:
             - containerPort: 8084
           env:

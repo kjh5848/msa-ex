@@ -4,7 +4,7 @@ metadata:
   name: gateway-service
   namespace: metacoding
 spec:
-  type: LoadBalancer  # 외부에 노출
+  type: ClusterIP  # 내부 통신 전용
   selector:
     app: gateway
   ports:

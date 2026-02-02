@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: user-server
-          image: metacoding/user:1
+          image: 842903729788.dkr.ecr.ap-northeast-2.amazonaws.com/metacoding/user:1
           ports:
             - containerPort: 8083
           env:

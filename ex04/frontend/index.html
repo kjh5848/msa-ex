@@ -13,14 +13,30 @@
   <h3 id="status"></h3>
 
   <script>
-    const TOKEN = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJzc2FyIiwiZXhwIjoxNzY5NDEwMzU4fQ.NkcCFYoQpKfCphOnl1O9qZSM9iDA8ACwsXtZzcPY7Vm6f4GRHnINOS8-0L0tLfF1OlwhdH0VSopfjng7cM3nVQ";
+    // 2026년까지 유효한 토큰 (userId: 1)
+    const TOKEN = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJzc2FyIiwiZXhwIjoxNzY5OTU5OTk3fQ.R8sOgjI46gaaJ-df--LuxP-ISEFF9lfOxko8QLd558gsMt-uf7NE3sAeGIAvydESe0Uu-IKaTXFqi3CCgfAotw";
     const status = document.getElementById('status');
     let stomp = null;
 
     async function createOrder() {
-      if (!stomp) {
+      // 1. 연결 및 구독 (주문 전에 미리 귀를 열어둠)
+      if (!stomp || !stomp.connected) {
+        status.textContent = "서버 연결 중...";
         stomp = Stomp.over(new SockJS(`/api/ws/orders?token=${TOKEN}`));
-        stomp.connect({}, () => {});
+        
+        await new Promise((resolve, reject) => {
+            stomp.connect({}, () => {
+                // 연결 성공하자마자 바로 구독! (userId: 1 하드코딩 또는 토큰에서 추출)
+                const userId = 1; 
+                stomp.subscribe(`/topic/orders/${userId}`, (msg) => {
+                    const data = JSON.parse(msg.body);
+                    status.textContent = `주문이 완료되었습니다. (주문번호: ${data.orderId})`;
+                    console.log("알림 수신:", data);
+                });
+                console.log("✅ 연결 및 구독 완료");
+                resolve();
+            }, reject);
+        });
       }
 
       try {
@@ -42,15 +58,14 @@
 
         if (response.ok) {
           const data = await response.json();
-          const userId = data.body.userId;
-
-          stomp.subscribe(`/topic/orders/${userId}`, (msg) => {
-            const data = JSON.parse(msg.body);
-            status.textContent = `주문이 완료되었습니다. (주문번호: ${data.orderId})`;
-          });
+          // 여기서 또 구독할 필요 없음 (이미 위에서 구독 중)
+          status.innerHTML = `서버 응답 성공! (Order ID: ${data.body.id})<br>배달 완료 알림을 기다리는 중...`;
+        } else {
+          status.textContent = "주문 요청 실패";
         }
     } catch (error) {
-      status.textContent = "오류 발생";
+      status.textContent = "오류 발생: " + error;
+      console.error(error);
     }
   }
 </script>

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: gateway-server
-          image: metacoding/gateway:1
+          image: 842903729788.dkr.ecr.ap-northeast-2.amazonaws.com/metacoding/gateway:1
           ports:
             - containerPort: 8080
           env:

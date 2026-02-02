@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+  <h1>고객 화면</h1>
+
+  <button onclick="createOrder()">주문하기</button>
+
+  <h3 id="status"></h3>
+
+  <script>
+    const TOKEN = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJzc2FyIiwiZXhwIjoxNzY5NDEwMzU4fQ.NkcCFYoQpKfCphOnl1O9qZSM9iDA8ACwsXtZzcPY7Vm6f4GRHnINOS8-0L0tLfF1OlwhdH0VSopfjng7cM3nVQ";
+    const status = document.getElementById('status');
+    let stomp = null;
+
+    async function createOrder() {
+      if (!stomp) {
+        stomp = Stomp.over(new SockJS(`/api/ws/orders?token=${TOKEN}`));
+        stomp.connect({}, () => {});
+      }
+
+      try {
+        status.textContent = "주문 요청 중...";
+
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${TOKEN}`
+          },
+          body: JSON.stringify({
+            productId: 1,
+            quantity: 1,
+            price: 25000,
+            address: "Addr 4"
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const userId = data.body.userId;
+
+          stomp.subscribe(`/topic/orders/${userId}`, (msg) => {
+            const data = JSON.parse(msg.body);
+            status.textContent = `주문이 완료되었습니다. (주문번호: ${data.orderId})`;
+          });
+        }
+    } catch (error) {
+      status.textContent = "오류 발생";
+    }
+  }
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: order-server
-          image: metacoding/order:1
+          image: 842903729788.dkr.ecr.ap-northeast-2.amazonaws.com/metacoding/order:1
           ports:
             - containerPort: 8081
           env:

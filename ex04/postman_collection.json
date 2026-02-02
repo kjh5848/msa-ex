@@ -1,0 +1,153 @@
+{
+	"info": {
+		"_postman_id": "metacoding-eks-v1",
+		"name": "EKS MSA Project",
+		"description": "EKS MSA 프로젝트 실습용 컬렉션입니다. 배달 기사 관점을 포함합니다.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. 로그인 (토큰획득)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 응답 바디에서 토큰 추출 (Resp.ok 구조 대응)",
+							"var jsonData = pm.response.json();",
+							"var token = jsonData.body;",
+							"",
+							"if (token && token.startsWith('Bearer ')) {",
+							"    token = token.replace('Bearer ', '');",
+							"    pm.environment.set('token', token);",
+							"    console.log('Token saved:', token);",
+							"} else {",
+							"    console.log('Token not found in response body');",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"ssar\",\n    \"password\": \"1234\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. 주문 생성 (사용자)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"productId\": 1,\n    \"quantity\": 1,\n    \"price\": 10000,\n    \"address\": \"Seoul, Gangnam\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/api/orders",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"orders"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. 배달 조회 (기사)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/deliveries",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"deliveries"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. 배달 완료 (기사)",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/deliveries/:deliveryId/complete",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"deliveries",
+						":deliveryId",
+						"complete"
+					],
+					"variable": [
+						{
+							"key": "deliveryId",
+							"value": "1",
+							"description": "조회한 배달 ID를 입력하세요"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://<로드밸런서-주소>"
+		}
+	]
+}

@@ -162,3 +162,35 @@ sequenceDiagram
   GW-->>FE: 응답
   FE-->>B: 응답
 ```
+
+## Mermaid 다이어그램
+
+### Flow
+
+```mermaid
+flowchart LR
+  B[Browser] --> FE[Frontend]
+  FE -->|/api/*| GW[Gateway]
+  GW --> O[Order]
+  GW --> P[Product]
+  GW --> U[User]
+  GW --> D[Delivery]
+```
+
+### Sequence
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant FE as Frontend
+  participant GW as Gateway
+  participant O as Order Service
+
+  B->>FE: POST /api/orders
+  FE->>GW: Proxy /api/orders
+  GW->>O: POST /orders
+  O-->>GW: 201 Created
+  GW-->>FE: 201 Created
+  FE-->>B: 201 Created
+```
+

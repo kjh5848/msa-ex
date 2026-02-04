@@ -2,12 +2,148 @@
 
 이 프로젝트를 Kind(Kubernetes in Docker) 환경에서 배포하기 위한 단계별 가이드입니다. 각 명령어의 의미와 설명을 포함하고 있습니다.
 
+## Kind 구성도 (Mermaid, LR)
+
+### 0.1. 전체 구성도 (상세)
+
+```mermaid
+flowchart LR
+  subgraph DEV[로컬 개발 환경]
+    B[브라우저]
+    D[Docker Desktop]
+  end
+
+  subgraph KIND[Kind 클러스터]
+    N1[노드: msa-cluster-control-plane]
+
+    subgraph NS[네임스페이스: metacoding]
+      GW[Gateway Service]
+      FE[Frontend Service]
+      DB[DB Service]
+      OR[Orchestrator Service]
+      O[Order Service]
+      P[Product Service]
+      U[User Service]
+      DL[Delivery Service]
+      K[Kafka Service]
+    end
+  end
+
+  B -- 포트포워드 8080 --> GW
+  B -- 포트포워드 3000 --> FE
+  D --> KIND
+  N1 --> GW
+  N1 --> FE
+  N1 --> DB
+  N1 --> OR
+  N1 --> O
+  N1 --> P
+  N1 --> U
+  N1 --> DL
+  N1 --> K
+```
+
+### 0.2. 요약 구성도 (간단)
+
+```mermaid
+flowchart LR
+  B[로컬 브라우저] -->|포트포워드| GW[Gateway]
+  B -->|포트포워드| FE[Frontend]
+  subgraph KIND[Kind 클러스터]
+    GW
+    FE
+    S[내부 서비스들]
+  end
+```
+
 ## 1. 사전 준비 사항 (Prerequisites)
+
+## 프론트 -> 게이트웨이 라우팅 설명
+
+프론트엔드는 모든 백엔드 요청을 **게이트웨이로만** 보내고, 게이트웨이가 내부 서비스로 라우팅합니다.  
+즉, **프론트는 여러 마이크로서비스의 주소를 몰라도** 되고, 게이트웨이가 단일 진입점 역할을 합니다.
+
+### 왜 필요한가?
+
+1. **단일 진입점 (Single Entry Point)**
+   - 프론트는 `gateway` 주소만 알고 있으면 됩니다.
+   - 서비스가 늘어나도 프론트 코드는 거의 바뀌지 않습니다.
+
+2. **보안/인증 처리의 중앙화**
+   - JWT 검사, 사용자 식별 등을 게이트웨이에서 한 번만 처리합니다.
+   - 각 서비스에 인증 로직을 중복으로 넣지 않아도 됩니다.
+
+3. **라우팅 규칙의 일관성**
+   - `/api/orders`, `/api/users`, `/api/deliveries` 같은 규칙을 게이트웨이에서 관리합니다.
+   - 프론트는 규칙에 맞춰 호출만 하면 됩니다.
+
+4. **운영 편의성**
+   - 서비스의 실제 주소가 바뀌어도 게이트웨이 설정만 바꾸면 됩니다.
+   - 로깅/모니터링 포인트를 한 곳에 모을 수 있습니다.
+
+### 이 프로젝트에서의 흐름
+
+- **브라우저** → `frontend-service`
+- **프론트(Nginx)** → `gateway-service`로 `/api/*` 요청 프록시
+- **게이트웨이** → 각 마이크로서비스로 라우팅
+
+예시:
+```
+브라우저 -> Frontend(/api/orders) -> Gateway(/api/orders) -> Order Service(/orders)
+```
 
 다음 도구들이 설치되어 있어야 합니다:
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+### 1.1. 설치 명령어 (OS별)
+
+**macOS (Homebrew)**
+```bash
+brew install kind kubectl
+```
+
+**Linux (Ubuntu/Debian)**
+```bash
+# kubectl
+curl -fsSL -o /usr/local/bin/kubectl \
+  https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+chmod +x /usr/local/bin/kubectl
+
+# kind
+curl -fsSL -o /usr/local/bin/kind \
+  https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+chmod +x /usr/local/bin/kind
+```
+
+**Windows**
+
+*PowerShell + winget (권장)*
+```powershell
+winget install -e --id Kubernetes.kubectl
+winget install -e --id Kubernetes.kind
+```
+
+*Chocolatey*
+```powershell
+choco install kubernetes-cli kind
+```
+
+> **명령어 상세 설명**:
+> - macOS는 Homebrew로 `kind`, `kubectl`을 설치합니다.
+> - Linux는 공식 바이너리를 내려받아 `/usr/local/bin`에 설치합니다.
+> - Windows는 `winget` 또는 `choco`로 설치합니다. (Docker Desktop은 공식 사이트에서 설치)
+
+### 1.2. 설치 확인 (버전 체크)
+```bash
+docker --version
+kind --version
+kubectl version --client
+```
+
+> **명령어 상세 설명**:
+> - 각 도구가 정상 설치되었는지 버전 출력으로 확인합니다.
 
 ## 2. 클러스터 생성 (Create Cluster)
 
@@ -41,7 +177,6 @@ kubectl create namespace metacoding
 docker build -t metacoding/db:1 ./db
 docker build -t metacoding/gateway:1 ./api-gateway
 docker build -t metacoding/order:1 ./order
-# ... (이하 동일 패턴)
 docker build -t metacoding/product:1 ./product
 docker build -t metacoding/user:1 ./user
 docker build -t metacoding/delivery:1 ./delivery
@@ -61,7 +196,6 @@ docker build -t metacoding/frontend:1 ./frontend
 ```bash
 kind load docker-image metacoding/db:1 --name msa-cluster
 kind load docker-image metacoding/gateway:1 --name msa-cluster
-# ... (모든 이미지에 대해 수행)
 kind load docker-image metacoding/order:1 --name msa-cluster
 kind load docker-image metacoding/product:1 --name msa-cluster
 kind load docker-image metacoding/user:1 --name msa-cluster
@@ -113,27 +247,49 @@ kubectl apply -f k8s/frontend
 ## 6. 서비스 접근 (Access Services)
 
 ```bash
-# Gateway 연결
-kubectl port-forward service/gateway-service -n metacoding 8080:8080
-```
-
-> **명령어 상세 설명**:
-> - `kubectl port-forward`: 내 컴퓨터의 포트와 클러스터 내부의 포트를 연결(터널링)합니다.
-> - `service/gateway-service`: 연결할 대상 서비스 이름입니다.
-> - `-n metacoding`: 해당 서비스가 있는 네임스페이스입니다.
-> - `8080:8080`: `[내 컴퓨터 포트]:[클러스터 포트]` 입니다. 내 컴퓨터의 8080으로 접속하면 클러스터 내부의 8080으로 보냅니다.
-> - **접속 주소**: [http://localhost:8080](http://localhost:8080)
-
-```bash
 # Frontend 연결 (새 터미널에서 실행)
 kubectl port-forward service/frontend-service -n metacoding 3000:80
 ```
 
 > **명령어 상세 설명**:
+> - `kubectl port-forward`: 내 컴퓨터의 포트와 클러스터 내부의 포트를 연결(터널링)합니다.
+> - `-n metacoding`: 해당 서비스가 있는 네임스페이스입니다.
+> - `service/frontend-service`: 연결할 대상 서비스 이름입니다.
 > - `3000:80`: 내 컴퓨터의 `3000`번 포트로 접속하면, 클러스터 내부 Frontend 서비스의 `80`번 포트로 연결해라.
 > - **접속 주소**: [http://localhost:3000](http://localhost:3000)
 
-## 7. 상태 확인 & 정리
+### 6.1. 포트포워드 종료
+
+포트포워드는 **실행 중인 터미널에서 `Ctrl+C`**를 누르면 종료됩니다.
+
+터미널을 닫아서 프로세스가 남아있다면 아래로 종료하세요.
+
+```bash
+# 3000 포트포워드 종료
+lsof -ti tcp:3000 | xargs kill -9
+```
+
+> **명령어 상세 설명**:
+> - `lsof -ti tcp:<PORT>`: 해당 포트를 사용 중인 프로세스 ID(PID)만 출력합니다.
+> - `xargs kill -9`: 출력된 PID를 강제 종료합니다.
+
+## 7. 실습 순서 (Practice Flow)
+
+아래 순서대로 진행하면 됩니다.
+
+1. Postman으로 로그인 요청을 보내고 토큰을 발급받습니다.
+2. 발급받은 토큰을 프론트엔드에 입력합니다.
+3. Docker 이미지 빌드
+4. Kind 클러스터로 이미지 로드
+5. 주문 요청
+6. 배달 조회
+7. 배달 완료 요청
+
+> **참고**:
+> - 로그인/주문/배달 관련 API 경로는 `postman_collection.json`을 기준으로 사용하세요.
+> - 프론트엔드 토큰 입력 위치는 UI에 있는 토큰 입력란(또는 로컬 스토리지/쿠키 사용 방식)을 따릅니다.
+
+## 8. 상태 확인 & 정리
 
 ```bash
 kubectl get pods -n metacoding
@@ -145,7 +301,7 @@ kind delete cluster --name msa-cluster
 ```
 > - `delete cluster`: 만들었던 가상 클러스터를 완전히 삭제하여 시스템 자원을 정리합니다.
 
-## 8. 트러블슈팅 (Troubleshooting)
+## 9. 트러블슈팅 (Troubleshooting)
 
 ### "failed while waiting for the kubelet to start" 에러 대처법
 
